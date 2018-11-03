@@ -3,31 +3,11 @@
  */
 const express = require('express');
 const fetch = require('node-fetch');
-const fs = require('fs');
-const path = require('path');
+const { gateways, pages } = require('./config');
+
 const app = express();
 
-const gateways = {
-  account: 'http://localhost:3001',
-  browsing: 'http://localhost:3002',
-  checkout: 'http://localhost:3003',
-  search: 'http://localhost:3004',
-};
-
-const pages = [
-  {
-    name: 'homepage',
-    url: '/',
-    html: fs.readFileSync(path.join(__dirname, './pages/home.html'), 'utf8')
-  },
-  {
-    name: 'product',
-    url: '/product/:id',
-    html: fs.readFileSync(path.join(__dirname, './pages/product.html'), 'utf8')
-  }
-];
-
-const fragmentParserRegex = /fragment from="(.*?)" name="(.*?)"/gim;
+const fragmentParserRegex = /<fragment from="(.*?)" name="(.*?)"><\/fragment>/gim;
 
 const pageRenderer = (page) => {
   const fragments = [];
@@ -36,18 +16,23 @@ const pageRenderer = (page) => {
   while(match){
     fragments.push({
       gateway: gateways[match[1]],
-      name: match[2]
+      name: match[2],
+      replacement: match[0]
     });
     match = fragmentParserRegex.exec(page.html);
   }
 
   return async (req, res) => {
-    const fragmentResponses = await Promise.all(fragments.map(async fragment => {
+    let response = page.html;
+
+    await Promise.all(fragments.map(async fragment => {
       return fetch(`${fragment.gateway}/${fragment.name}${req.url.replace(`${page.name}/`,'')}`)
-        .then(res => res.text());
+        .then(async res => {
+          response = response.replace(fragment.replacement, await res.text())
+        });
     }));
 
-    res.end(fragmentResponses.join(''));
+    res.end(response);
   }
 };
 
