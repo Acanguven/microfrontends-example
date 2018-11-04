@@ -3,6 +3,7 @@
  */
 const express = require('express');
 const fetch = require('node-fetch');
+const path = require("path");
 const { gateways, pages } = require('./config');
 
 const app = express();
@@ -39,6 +40,8 @@ const pageRenderer = (page) => {
 pages.forEach(page => {
   app.get(page.url, pageRenderer(page))
 });
+
+app.use('/', express.static(path.join(__dirname, 'static')));
 
 const PORT = 8080;
 
